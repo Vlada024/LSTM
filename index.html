@@ -1,0 +1,336 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>LSTM Dataset Generator</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>LSTM Dataset Generator</h1>
+            <p>Generate synthetic time series data for LSTM training</p>
+        </header>
+
+        <main>
+            <div class="panel">
+                <h2>Dataset Configuration</h2>
+                
+                <div class="form-section">
+                    <h3>Basic Parameters</h3>
+                    <div class="form-group">
+                        <label for="samples">Number of Samples</label>
+                        <input type="number" id="samples" min="10" max="100000" value="1000" step="10">
+                        <span class="help-text">Total number of time series samples to generate</span>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="sequence-length">Sequence Length</label>
+                        <input type="number" id="sequence-length" min="5" value="100" step="5">
+                        <span class="help-text">Number of time steps in each sequence</span>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="seed">Random Seed</label>
+                        <input type="number" id="seed" value="42" step="1">
+                        <span class="help-text">For reproducible results</span>
+                    </div>
+                </div>
+
+                <div class="form-section">
+                    <h3>Noise Parameters</h3>
+                    <div class="form-group">
+                        <label for="noise-std">Noise Standard Deviation</label>
+                        <input type="number" id="noise-std" min="0" max="1" value="0.1" step="0.01">
+                        <span class="help-text">Gaussian noise level (0 = no noise)</span>
+                    </div>
+                </div>
+
+                <div class="form-section">
+                    <h3>Signal Parameters</h3>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="amp-min">Amplitude Min</label>
+                            <input type="number" id="amp-min" value="0.5" step="0.1">
+                            <span class="help-text">Minimum wave amplitude</span>
+                        </div>
+                        <div class="form-group">
+                            <label for="amp-max">Amplitude Max</label>
+                            <input type="number" id="amp-max" value="2.0" step="0.1">
+                            <span class="help-text">Maximum wave amplitude</span>
+                        </div>
+                    </div>
+
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="freq-min">Frequency Min</label>
+                            <input type="number" id="freq-min" value="0.01" step="0.01">
+                            <span class="help-text">Minimum wave frequency</span>
+                        </div>
+                        <div class="form-group">
+                            <label for="freq-max">Frequency Max</label>
+                            <input type="number" id="freq-max" value="0.1" step="0.01">
+                            <span class="help-text">Maximum wave frequency</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="button-group">
+                    <button id="generate-btn" class="btn btn-primary">Generate Dataset</button>
+                    <button id="export-btn" class="btn btn-secondary" disabled>Export as JSON</button>
+                </div>
+
+                <div id="status" class="status"></div>
+            </div>
+
+            <div id="preview-section" class="preview-section" style="display: none;">
+                <h2>Dataset Preview</h2>
+                <canvas id="preview-chart"></canvas>
+                <div id="preview-controls" class="preview-controls" style="display: none;">
+                    <button id="preview-prev-btn" class="btn">◀ Prev</button>
+                    <button id="preview-render-btn" class="btn">⟳ Render</button>
+                    <button id="preview-next-btn" class="btn">Next ▶</button>
+                    <div id="preview-sample-label" class="preview-sample-label">Sample: 0 / 0</div>
+                </div>
+                <div id="stats" class="stats"></div>
+            </div>
+
+            <div id="training-section" class="training-section" style="display: none;">
+                <h2>LSTM Model Training</h2>
+                
+                <div class="form-section">
+                    <h3>Model Configuration</h3>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="units">LSTM Units</label>
+                            <input type="number" id="units" min="8" max="512" value="64" step="8">
+                            <span class="help-text">Number of LSTM units</span>
+                        </div>
+                        <div class="form-group">
+                            <label for="batch-size">Batch Size</label>
+                            <input type="number" id="batch-size" min="1" max="256" value="32" step="1">
+                            <span class="help-text">Training batch size</span>
+                        </div>
+                    </div>
+
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="epochs">Epochs</label>
+                            <input type="number" id="epochs" min="1" max="500" value="50" step="1">
+                            <span class="help-text">Number of training epochs</span>
+                        </div>
+                        <div class="form-group">
+                            <label for="learning-rate">Learning Rate</label>
+                            <input type="number" id="learning-rate" min="0.0001" max="0.1" value="0.001" step="0.0001">
+                            <span class="help-text">Model learning rate</span>
+                        </div>
+                    </div>
+
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="validation-split">Validation Split</label>
+                            <input type="number" id="validation-split" min="0.05" max="0.5" value="0.2" step="0.05">
+                            <span class="help-text">Fraction of data for validation (0-1)</span>
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="low-cpu">Low-CPU Mode</label>
+                            <input type="checkbox" id="low-cpu">
+                            <span class="help-text">When enabled, training uses only a subset of the dataset to reduce CPU/GPU usage</span>
+                        </div>
+                        <div class="form-group">
+                            <label for="train-subset">Train Subset (%)</label>
+                            <input type="number" id="train-subset" min="1" max="100" value="20" step="1">
+                            <span class="help-text">Percentage of samples to use when Low-CPU is enabled</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="button-group">
+                    <button id="start-training-btn" class="btn btn-primary">Start Training</button>
+                    <button id="stop-training-btn" class="btn btn-danger" disabled>Stop Training</button>
+                    <button id="architecture-btn" class="btn btn-info">📐 Network Architecture</button>
+                </div>
+
+                <div id="training-status" class="status"></div>
+
+                <div id="training-progress" class="training-progress" style="display: none;">
+                    <div class="progress-bar">
+                        <div id="progress-fill" class="progress-fill"></div>
+                    </div>
+                    <div class="progress-text">
+                        <span id="epoch-info">Epoch 0/0</span>
+                        <span id="loss-info">Loss: 0.000</span>
+                    </div>
+                </div>
+
+                <div id="training-charts-container" class="training-charts-container" style="display: none;">
+                    <div class="training-chart-wrapper">
+                        <h3>Training Loss</h3>
+                        <canvas id="training-loss-chart"></canvas>
+                    </div>
+                    <div class="training-chart-wrapper">
+                        <h3>Training Metrics (MAE)</h3>
+                        <canvas id="training-metrics-chart"></canvas>
+                    </div>
+                </div>
+
+                <div id="training-metrics" class="training-metrics" style="display: none;"></div>
+            </div>
+        </main>
+    </div>
+
+    <!-- Architecture Modal -->
+    <div id="architecture-modal" class="modal" style="display: none;">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>Network Architecture</h2>
+                <button class="modal-close">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="architecture-diagram">
+                    <pre id="architecture-ascii"></pre>
+                </div>
+
+                <div class="layer-details">
+                    <div class="layer-card">
+                        <h3>Input Layer</h3>
+                        <div class="layer-info">
+                            <div class="info-row">
+                                <span class="info-label">Shape:</span>
+                                <span class="info-value">(batch_size, sequence_length, 1)</span>
+                            </div>
+                            <div class="info-row">
+                                <span class="info-label">Description:</span>
+                                <span class="info-value">Normalized time series sequences, each with sequence_length timesteps</span>
+                            </div>
+                            <div class="info-row">
+                                <span class="info-label">Preprocessing:</span>
+                                <span class="info-value">Z-normalization using dataset mean and std</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="layer-card">
+                        <h3>LSTM Core</h3>
+                        <div class="layer-info">
+                            <div class="info-row">
+                                <span class="info-label">Type:</span>
+                                <span class="info-value">Long Short-Term Memory</span>
+                            </div>
+                            <div class="info-row">
+                                <span class="info-label">Units:</span>
+                                <span class="info-value"><span id="arch-units">64</span></span>
+                            </div>
+                            <div class="info-row">
+                                <span class="info-label">Activation:</span>
+                                <span class="info-value">ReLU (Rectified Linear Unit)</span>
+                            </div>
+                            <div class="info-row">
+                                <span class="info-label">Output Shape:</span>
+                                <span class="info-value">(batch_size, <span id="arch-units-2">64</span>)</span>
+                            </div>
+                            <div class="info-row">
+                                <span class="info-label">Function:</span>
+                                <span class="info-value">Learns temporal dependencies in sequences through input, forget, and output gates</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="layer-card">
+                        <h3>Dropout Layer</h3>
+                        <div class="layer-info">
+                            <div class="info-row">
+                                <span class="info-label">Rate:</span>
+                                <span class="info-value">0.2 (20%)</span>
+                            </div>
+                            <div class="info-row">
+                                <span class="info-label">Function:</span>
+                                <span class="info-value">Regularization to prevent overfitting by randomly deactivating 20% of neurons</span>
+                            </div>
+                            <div class="info-row">
+                                <span class="info-label">Output Shape:</span>
+                                <span class="info-value">(batch_size, <span id="arch-units-3">64</span>)</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="layer-card">
+                        <h3>Dense Hidden Layer</h3>
+                        <div class="layer-info">
+                            <div class="info-row">
+                                <span class="info-label">Units:</span>
+                                <span class="info-value">32</span>
+                            </div>
+                            <div class="info-row">
+                                <span class="info-label">Activation:</span>
+                                <span class="info-value">ReLU</span>
+                            </div>
+                            <div class="info-row">
+                                <span class="info-label">Output Shape:</span>
+                                <span class="info-value">(batch_size, 32)</span>
+                            </div>
+                            <div class="info-row">
+                                <span class="info-label">Function:</span>
+                                <span class="info-value">Feature transformation layer that extracts patterns from LSTM output</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="layer-card">
+                        <h3>Output Layer</h3>
+                        <div class="layer-info">
+                            <div class="info-row">
+                                <span class="info-label">Units:</span>
+                                <span class="info-value">1</span>
+                            </div>
+                            <div class="info-row">
+                                <span class="info-label">Activation:</span>
+                                <span class="info-value">Linear (Identity)</span>
+                            </div>
+                            <div class="info-row">
+                                <span class="info-label">Output Shape:</span>
+                                <span class="info-value">(batch_size, 1)</span>
+                            </div>
+                            <div class="info-row">
+                                <span class="info-label">Function:</span>
+                                <span class="info-value">Predicts the next value in the time series (regression)</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="layer-card">
+                        <h3>Loss & Optimization</h3>
+                        <div class="layer-info">
+                            <div class="info-row">
+                                <span class="info-label">Loss Function:</span>
+                                <span class="info-value">Mean Squared Error (MSE)</span>
+                            </div>
+                            <div class="info-row">
+                                <span class="info-label">Optimizer:</span>
+                                <span class="info-value">Adam</span>
+                            </div>
+                            <div class="info-row">
+                                <span class="info-label">Learning Rate:</span>
+                                <span class="info-value"><span id="arch-lr">0.001</span></span>
+                            </div>
+                            <div class="info-row">
+                                <span class="info-label">Metrics:</span>
+                                <span class="info-value">Mean Absolute Error (MAE)</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.10.0"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs-layers@4.10.0"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0"></script>
+    <script src="datasetGenerator.js"></script>
+    <script src="app.js"></script>
+</body>
+</html>
